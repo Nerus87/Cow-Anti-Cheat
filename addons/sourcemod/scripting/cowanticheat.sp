@@ -18,7 +18,7 @@
 #pragma semicolon 1
 
 #define PLUGIN_AUTHOR "CodingCow"
-#define PLUGIN_VERSION "1.17"
+#define PLUGIN_VERSION "1.2"
 #define JUMP_HISTORY 30
 #define SERVER 0
 #define HIDE_CMDRATE_VELUE 10
@@ -221,7 +221,7 @@ public void OnClientPutInServer(int client)
 {
 	SetToDefaults(client);
 	
-	if(IsValidClient(client))
+	if(IsValidClt(client))
 	{
 		if(sm_cac_profilecheck.BoolValue)
 		{
@@ -256,7 +256,7 @@ public Action getBhop(int client, int args)
 	
 	int target = FindTarget(client, arg, true, false);
 	
-	if(!IsValidClient(target))
+	if(!IsValidClt(target))
 	{
 		PrintToChat(client, "[\x02CowAC\x01] Not a valid target!");
 		return Plugin_Handled;
@@ -365,7 +365,7 @@ public Action getSettings(Handle timer)
 	{
 		for (int i = 1; i <= MaxClients; i++)
 		{
-			if(IsValidClient(i))
+			if(IsValidClt(i))
 			{
 				QueryClientConVar(i, "sensitivity", ConVar_QueryClient, i);
 				QueryClientConVar(i, "m_yaw", ConVar_QueryClient, i);
@@ -377,7 +377,7 @@ public Action getSettings(Handle timer)
 	{
 		for (int i = 1; i <= MaxClients; i++)
 		{
-			if(IsValidClient(i))
+			if(IsValidClt(i))
 			{
 				QueryClientConVar(i, "sensitivity", ConVar_QueryClient, i);
 				QueryClientConVar(i, "m_yaw", ConVar_QueryClient, i);
@@ -393,7 +393,7 @@ public void OnClientSettingsChanged(int client)
 
 public void OnCheckClientCmdRate(QueryCookie cookie, int client, ConVarQueryResult result, const char[] cvarName, const char[] cvarValue)
 {
-	if(!sm_cac_hidelatency.BoolValue || !IsValidClient(client))
+	if(!sm_cac_hidelatency.BoolValue || !IsValidClt(client))
 		return;
 
 	char cmdRate[32];
@@ -410,7 +410,7 @@ public void OnCheckClientCmdRate(QueryCookie cookie, int client, ConVarQueryResu
 
 public Action OnClientCommandKeyValues(int client, KeyValues kv) 
 {
-	if(!IsValidClient(client))
+	if(!IsValidClt(client))
 		return Plugin_Continue;
 
 	char command[64];
@@ -425,7 +425,7 @@ public Action OnClientCommandKeyValues(int client, KeyValues kv)
 
 public void OnPlayerChangeTag(int client)
 {
-	if(!IsValidClient(client) || !sm_cac_clantagchange.BoolValue)
+	if(!IsValidClt(client) || !sm_cac_clantagchange.BoolValue)
 		return;
 
 	int current_time = GetTime(); 
@@ -457,7 +457,7 @@ public void OnPlayerChangeTag(int client)
 
 public void ConVar_QueryClient(QueryCookie cookie, int client, ConVarQueryResult result, const char[] cvarName, const char[] cvarValue)
 {
-	if(IsValidClient(client))
+	if(IsValidClt(client))
 	{
 		if(result == ConVarQuery_Okay)
 		{
@@ -517,7 +517,7 @@ public Action Event_BombDefused(Handle event, const char[] name, bool dontBroadc
 
 public Action OnPlayerRunCmd(int client, int &iButtons, int &iImpulse, float fVelocity[3], float fAngles[3], int &iWeapon, int &subtype, int &cmdnum, int &tickcount, int &seed, int mouse[2])
 {
-	if(!IsFakeClient(client) && IsValidClient(client) && IsPlayerAlive(client))
+	if(!IsFakeClient(client) && IsValidClt(client) && IsPlayerAlive(client))
 	{
 		float vOrigin[3], AnglesVec[3], EndPoint[3];
 	
@@ -1196,7 +1196,7 @@ public void PrintToAdmins(const char[] message)
 {
     for (int i = 1; i <= MaxClients; i++) 
     {
-        if (IsValidClient(i))
+        if (IsValidClt(i))
         {
             if (CheckCommandAccess(i, "cowac_print_override", ADMFLAG_GENERIC))
             {
@@ -1228,7 +1228,7 @@ public void CowAC_Log(char[] message)
 	delete logFile;
 }
 
-bool IsValidClient(int client, bool bAllowBots = false, bool bAllowDead = true)
+bool IsValidClt(int client, bool bAllowBots = false, bool bAllowDead = true)
 {
 	if(!(1 <= client <= MaxClients) || !IsClientInGame(client) || (IsFakeClient(client) && !bAllowBots) || IsClientSourceTV(client) || IsClientReplay(client) || (!bAllowDead && !IsPlayerAlive(client)))
 	{
