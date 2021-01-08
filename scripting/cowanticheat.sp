@@ -21,12 +21,15 @@
 #define PLUGIN_VERSION "1.17"
 #define JUMP_HISTORY 30
 #define SERVER 0
+#define HIDE_CMDRATE_VELUE 10
 
 #include <sourcemod>
 #include <sdktools>
 #include <cstrike>
 #include <SteamWorks>
+#include <regex>
 #undef REQUIRE_PLUGIN
+#tryinclude <quickdefuse>
 #tryinclude <sourcebanspp>
 #if !defined _sourcebanspp_included
 	#tryinclude <sourcebans>
@@ -80,6 +83,7 @@ int prev_buttons[MAXPLAYERS + 1];
 int g_iLastShotTick[MAXPLAYERS + 1];
 int PlayerChangeTagCountInTime[MAXPLAYERS + 1] = {0, ...};
 int PlayerChangeTagTime[MAXPLAYERS + 1] = {0, ...};
+int QuickDefusedByPlayer = 0;
 
 float prev_angles[MAXPLAYERS + 1][3];
 float prev_sidemove[MAXPLAYERS + 1];
@@ -109,6 +113,7 @@ ConVar sm_cac_hourcheck = null;
 ConVar sm_cac_hourcheck_value = null;
 ConVar sm_cac_profilecheck = null;
 ConVar sm_cac_clantagchange = null;
+ConVar sm_cac_hidelatency = null;
 
 /* Detection Thresholds Cvars */
 ConVar sm_cac_aimbot_ban_threshold = null;
@@ -134,6 +139,7 @@ ConVar sm_cac_triggerbot_bantime = null;
 ConVar sm_cac_perfectstrafe_bantime = null;
 ConVar sm_cac_instantdefuse_bantime = null;
 ConVar sm_cac_clantagchange_bantime = null;
+ConVar sm_cac_hidelatency_bantime = null;
 
 public void OnPluginStart()
 {
@@ -177,6 +183,7 @@ public void SetConVars()
 	sm_cac_hourcheck_value = CreateConVar("sm_cac_hourcheck_value", "50", "Minimum amount of playtime a user has to have on CS:GO (Default: 50)");
 	sm_cac_profilecheck = CreateConVar("sm_cac_profilecheck", "0", "Enable profile checker, this makes it so users need to have a public profile to connect. (1 = Yes, 0 = No)", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 	sm_cac_clantagchange = CreateConVar("sm_cac_clantagchange", "1", "Enable changing clan tag detection (1 = Yes, 0 = No)", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	sm_cac_hidelatency = CreateConVar("sm_cac_hidelatency", "1", "Enable hide latency detection (1 = Yes, 0 = No)", FCVAR_NOTIFY, true, 0.0, true, 1.0);
 
 	sm_cac_aimbot_ban_threshold = CreateConVar("sm_cac_aimbot_ban_threshold", "5", "Threshold for aimbot ban detection (Default: 5)");
 	sm_cac_bhop_ban_threshold = CreateConVar("sm_cac_bhop_ban_threshold", "10", "Threshold for bhop ban detection (Default: 10)");
@@ -199,6 +206,7 @@ public void SetConVars()
 	sm_cac_perfectstrafe_bantime = CreateConVar("sm_cac_perfectstrafe_bantime", "0", "Ban time for perfect strafe detection (Default: 0)");
 	sm_cac_instantdefuse_bantime = CreateConVar("sm_cac_instantdefuse_bantime", "0", "Ban time for instant defuse detection (Default: 0)");
 	sm_cac_clantagchange_bantime = CreateConVar("sm_cac_clantagchange_bantime", "1", "Ban time for changing clan tag in minutes (Default: 1)");
+	sm_cac_hidelatency_bantime = CreateConVar("sm_cac_hidelatency_bantime", "1", "Ban time for hiding latency (Default: 1)");
 
 	AutoExecConfig(true, "cowanticheat");
 }
@@ -378,6 +386,28 @@ public Action getSettings(Handle timer)
 	}
 }
 
+public void OnClientSettingsChanged(int client)
+{
+	QueryClientConVar(client, "cl_cmdrate", OnCheckClientCmdRate);
+}
+
+public void OnCheckClientCmdRate(QueryCookie cookie, int client, ConVarQueryResult result, const char[] cvarName, const char[] cvarValue)
+{
+	if(!sm_cac_hidelatency.BoolValue || !IsValidClient(client))
+		return;
+
+	char cmdRate[32];
+	GetClientInfo(client, "cl_cmdrate", cmdRate, sizeof(cmdRate));
+
+	int rate = StringToInt(cmdRate);
+	if(rate == HIDE_CMDRATE_VELUE)
+	{
+		char reason[256];
+		Format(reason, 256, "[CowAC] Kicked %N for hiding latency (cl_cmdrate)!", client);
+		BanPlayer(client, sm_cac_hidelatency_bantime.IntValue, reason);
+	}
+}
+
 public Action OnClientCommandKeyValues(int client, KeyValues kv) 
 {
 	if(!IsValidClient(client))
@@ -397,12 +427,6 @@ public void OnPlayerChangeTag(int client)
 {
 	if(!IsValidClient(client) || !sm_cac_clantagchange.BoolValue)
 		return;
-
-	/*char name[16];
-	Format(name, 16, "%N", client);
-
-	if(!StrEqual(name, "Nerus"))
-		return;*/
 
 	int current_time = GetTime(); 
 
@@ -469,7 +493,14 @@ public Action Event_BombBeginDefuse(Handle event, const char[] name, bool dontBr
 public Action Event_BombDefused(Handle event, const char[] name, bool dontBroadcast )
 {
 	int client = GetClientOfUserId( GetEventInt( event, "userid" ) );
-	
+
+	if(client == QuickDefusedByPlayer)
+	{
+		QuickDefusedByPlayer = 0;
+
+		return;
+	}
+
 	if(GetEngineTime() - g_fDefuseTime[client] < 3.5 && sm_cac_instantdefuse.BoolValue)
     {
 		PrintToChatAll("[\x02CowAC\x01] \x0E%N \x01has been detected for Instant Defuse!", client);
@@ -1267,4 +1298,9 @@ stock void BanMethodTypePrintToServer()
 			PrintToServer("[CowAC] Banning players in the standard way via SourceMod");
 		#endif
 	#endif
+}
+
+public void OnPlayerDefuseC4(int client)
+{
+	QuickDefusedByPlayer = client;
 }
